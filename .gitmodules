@@ -1,0 +1,3 @@
+[submodule "submodules/kiss-icp"]
+	path = submodules/kiss-icp
+	url = https://github.com/PRBonn/kiss-icp.git
