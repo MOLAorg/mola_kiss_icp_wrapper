@@ -27,6 +27,7 @@ mola_add_executable(
 	LINK_LIBRARIES
 		mrpt::maps
 		mrpt::tclap
+		mola_kernel
 )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/submodules/kiss-icp/cpp/kiss_icp ${CMAKE_CURRENT_BINARY_DIR}/kiss_icp)
