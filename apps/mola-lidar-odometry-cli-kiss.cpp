@@ -31,6 +31,7 @@
 #include <mrpt/core/Clock.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/io/lazy_load_path.h>
+#include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CRawlog.h>
 #include <mrpt/rtti/CObject.h>
@@ -240,22 +241,36 @@ static int main_odometry()
         if (!obs) continue;
 
         // mrpt -> Eigen pointcloud
-        auto obsPc =
-            std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(obs);
-        if (!obsPc) continue;
-        ASSERT_(obsPc->pointcloud);
-
         std::vector<Eigen::Vector3d> inputPts;
-        {
-            const auto&  xs = obsPc->pointcloud->getPointsBufferRef_x();
-            const auto&  ys = obsPc->pointcloud->getPointsBufferRef_y();
-            const auto&  zs = obsPc->pointcloud->getPointsBufferRef_z();
+
+        auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc) {
+            const auto&  xs = pc.getPointsBufferRef_x();
+            const auto&  ys = pc.getPointsBufferRef_y();
+            const auto&  zs = pc.getPointsBufferRef_z();
             const size_t N  = xs.size();
             for (size_t j = 0; j < N; j++)
                 inputPts.emplace_back(xs[j], ys[j], zs[j]);
 
-            obsTimes.push_back(obsPc->timestamp);
+            obsTimes.push_back(obs->timestamp);
+        };
+
+        if (auto obsPc =
+                std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(
+                    obs);
+            obsPc)
+        {
+            ASSERT_(obsPc->pointcloud);
+            lmbPcToPoints(*obsPc->pointcloud);
         }
+        else
+        {
+            mrpt::maps::CSimplePointsMap pts;
+            obs->insertObservationInto(pts);
+
+            lmbPcToPoints(pts);
+        }
+
+        if (inputPts.empty()) continue;
 
         kissIcp.RegisterFrame(inputPts);
 
