@@ -34,6 +34,7 @@
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservationPointCloud.h>
 #include <mrpt/obs/CRawlog.h>
+#include <mrpt/poses/CPose3DInterpolator.h>
 #include <mrpt/rtti/CObject.h>
 #include <mrpt/system/COutputLogger.h>
 #include <mrpt/system/datetime.h>
