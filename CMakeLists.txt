@@ -19,6 +19,7 @@ find_mola_package(mola_kernel)
 # CLI apps
 # ---------------------------------
 find_package(mola_input_kitti_dataset) # optional
+find_package(mola_input_rawlog) # optional
 
 # kiss_icp interface:
 mola_add_executable(
