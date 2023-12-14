@@ -20,6 +20,7 @@ find_mola_package(mola_kernel)
 # ---------------------------------
 find_package(mola_input_kitti_dataset) # optional
 find_package(mola_input_rawlog) # optional
+find_package(mola_input_mulran_dataset) # optional
 
 # kiss_icp interface:
 mola_add_executable(
@@ -40,6 +41,15 @@ target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_kitti_dataset)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_KITTI)
 endif()
 
+if (mola_input_mulran_dataset_FOUND)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_mulran_dataset)
+target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_MULRAN)
+endif()
+
+if (mola_input_rawlog_FOUND)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_rawlog)
+target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_RAWLOG)
+endif()
 
 # -----------------------------------------------------------------------------
 #  ROS2

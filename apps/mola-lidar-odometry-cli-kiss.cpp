@@ -53,6 +53,10 @@
 #include <mola_input_kitti_dataset/KittiOdometryDataset.h>
 #endif
 
+#if defined(HAVE_MOLA_INPUT_MULRAN)
+#include <mola_input_mulran_dataset/MulranDataset.h>
+#endif
+
 #if defined(HAVE_MOLA_INPUT_RAWLOG)
 #include <mola_input_rawlog/RawlogDataset.h>
 #endif
@@ -100,6 +104,13 @@ static TCLAP::ValueArg<double> argKittiAngleDeg(
     "", "kitti-correction-angle-deg",
     "Correction vertical angle offset (see Deschaud,2018)", false, 0.205,
     "0.205 [degrees]", cmd);
+#endif
+
+#if defined(HAVE_MOLA_INPUT_MULRAN)
+static TCLAP::ValueArg<std::string> argMulranSeq(
+    "", "input-mulran-seq",
+    "INPUT DATASET: Use Mulran dataset sequence KAIST01|KAIST01|...", false,
+    "KAIST01", "KAIST01", cmd);
 #endif
 
 #if defined(HAVE_MOLA_INPUT_RAWLOG)
@@ -161,6 +172,29 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_kitti(
 }
 #endif
 
+#if defined(HAVE_MOLA_INPUT_MULRAN)
+std::shared_ptr<mola::OfflineDatasetSource> dataset_from_mulran(
+    const std::string& mulranSequence)
+{
+    auto o = std::make_shared<mola::MulranDataset>();
+
+    const auto cfg = mola::Yaml::FromText(mola::parse_yaml(mrpt::format(
+        R""""(
+    params:
+      base_dir: ${MULRAN_BASE_DIR}
+      sequence: '%s'
+      time_warp_scale: 1.0
+      publish_lidar: true
+      publish_ground_truth: true
+)"""",
+        mulranSequence.c_str())));
+
+    o->initialize(cfg);
+
+    return o;
+}
+#endif
+
 static int main_odometry()
 {
     kiss_icp::pipeline::KISSConfig kissCfg;
@@ -182,6 +216,13 @@ static int main_odometry()
         if (argKittiSeq.isSet())
     {
         dataset = dataset_from_kitti(argKittiSeq.getValue());
+    }
+    else
+#endif
+#if defined(HAVE_MOLA_INPUT_MULRAN)
+        if (argMulranSeq.isSet())
+    {
+        dataset = dataset_from_mulran(argMulranSeq.getValue());
     }
     else
 #endif
