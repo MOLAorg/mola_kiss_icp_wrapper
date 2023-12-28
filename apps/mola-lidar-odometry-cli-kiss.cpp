@@ -249,7 +249,7 @@ static int main_odometry()
         using namespace mrpt::obs;
 
         const auto sf = dataset->datasetGetObservations(i);
-        ASSERT_(!sf->empty());
+        ASSERT_(sf);
 
         CObservation::Ptr obs;
         obs = sf->getObservationByClass<CObservationRotatingScan>();
