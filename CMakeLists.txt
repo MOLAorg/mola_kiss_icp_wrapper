@@ -30,7 +30,7 @@ mola_add_executable(
 	LINK_LIBRARIES
 		mrpt::maps
 		mrpt::tclap
-		mola_kernel
+		mola::mola_kernel
 )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/submodules/kiss-icp/cpp/kiss_icp ${CMAKE_CURRENT_BINARY_DIR}/kiss_icp)
@@ -38,22 +38,22 @@ target_include_directories(mola-lidar-odometry-cli-kiss PRIVATE ${CMAKE_CURRENT_
 target_link_libraries(mola-lidar-odometry-cli-kiss kiss_icp::pipeline)
 
 if (mola_input_kitti_dataset_FOUND)
-target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_kitti_dataset)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_kitti_dataset)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_KITTI)
 endif()
 
 if (mola_input_mulran_dataset_FOUND)
-target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_mulran_dataset)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_mulran_dataset)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_MULRAN)
 endif()
 
 if (mola_input_rawlog_FOUND)
-target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_rawlog)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_rawlog)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_RAWLOG)
 endif()
 
 if (mola_input_rosbag2_FOUND)
-target_link_libraries(mola-lidar-odometry-cli-kiss mola_input_rosbag2)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_rosbag2)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_ROSBAG2)
 endif()
 
