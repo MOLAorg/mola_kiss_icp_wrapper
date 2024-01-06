@@ -279,6 +279,7 @@ static int main_odometry()
                     obs);
             obsPc)
         {
+            obsPc->load();
             ASSERT_(obsPc->pointcloud);
             lmbPcToPoints(*obsPc->pointcloud);
         }
