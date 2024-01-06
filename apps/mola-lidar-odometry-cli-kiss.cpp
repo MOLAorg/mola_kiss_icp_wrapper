@@ -61,6 +61,10 @@
 #include <mola_input_rawlog/RawlogDataset.h>
 #endif
 
+#if defined(HAVE_MOLA_INPUT_ROSBAG2)
+#include <mola_input_rosbag2/Rosbag2Dataset.h>
+#endif
+
 #include <csignal>  // sigaction
 #include <cstdlib>
 #include <iostream>
@@ -94,6 +98,20 @@ static TCLAP::ValueArg<std::string> argRawlog(
     "INPUT DATASET: rawlog. Input dataset in rawlog format (*.rawlog)", false,
     "dataset.rawlog", "dataset.rawlog", cmd);
 #endif
+
+#if defined(HAVE_MOLA_INPUT_ROSBAG2)
+static TCLAP::ValueArg<std::string> argRosbag2(
+    "", "input-rosbag2",
+    "INPUT DATASET: rosbag2. Input dataset in rosbag2 format (*.mcap)", false,
+    "dataset.mcap", "dataset.mcap", cmd);
+#endif
+
+static TCLAP::ValueArg<std::string> arg_lidarLabel(
+    "", "lidar-sensor-label",
+    "If provided, this supersedes the values in the 'lidar_sensor_labels' "
+    "entry of the odometry pipeline, defining the sensorLabel/topic name to "
+    "read LIDAR data from. It can be a regular expression (std::regex)",
+    false, "lidar1", "lidar1", cmd);
 
 #if defined(HAVE_MOLA_INPUT_KITTI)
 static TCLAP::ValueArg<std::string> argKittiSeq(
@@ -172,6 +190,36 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_kitti(
 }
 #endif
 
+#if defined(HAVE_MOLA_INPUT_ROSBAG2)
+std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag2(
+    const std::string& rosbag2file)
+{
+    ASSERTMSG_(
+        arg_lidarLabel.isSet(),
+        "Using a rosbag2 as input requires telling what is the lidar topic "
+        "with --lidar-sensor-label <TOPIC_NAME>");
+
+    auto o = std::make_shared<mola::Rosbag2Dataset>();
+
+    const auto cfg = mola::Yaml::FromText(mola::parse_yaml(mrpt::format(
+        R""""(
+    params:
+      rosbag_filename: '%s'
+      base_link_frame_id: 'base_footprint'
+      sensors:
+        - topic: '%s'
+          type: CObservationPointCloud
+          # If present, this will override whatever /tf tells about the sensor pose:
+          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
+)"""",
+        rosbag2file.c_str(), arg_lidarLabel.getValue().c_str())));
+
+    o->initialize(cfg);
+
+    return o;
+}
+#endif
+
 #if defined(HAVE_MOLA_INPUT_MULRAN)
 std::shared_ptr<mola::OfflineDatasetSource> dataset_from_mulran(
     const std::string& mulranSequence)
@@ -223,6 +271,13 @@ static int main_odometry()
         if (argMulranSeq.isSet())
     {
         dataset = dataset_from_mulran(argMulranSeq.getValue());
+    }
+    else
+#endif
+#if defined(HAVE_MOLA_INPUT_ROSBAG2)
+        if (argRosbag2.isSet())
+    {
+        dataset = dataset_from_rosbag2(argRosbag2.getValue());
     }
     else
 #endif
