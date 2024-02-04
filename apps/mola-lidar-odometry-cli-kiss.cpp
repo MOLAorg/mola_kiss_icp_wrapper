@@ -336,13 +336,11 @@ static int main_odometry()
         {
             obsPc->load();
             ASSERT_(obsPc->pointcloud);
-            lmbPcToPoints(*obsPc->pointcloud);
         }
-        else
+
         {
             mrpt::maps::CSimplePointsMap pts;
             obs->insertObservationInto(pts);
-
             lmbPcToPoints(pts);
         }
 
