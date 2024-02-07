@@ -73,9 +73,11 @@
 // Declare supported cli switches ===========
 static TCLAP::CmdLine cmd("mola-lidar-odometry-cli-kiss");
 
-static TCLAP::ValueArg<std::string> argYAML(
-    "c", "config", "Input YAML config file (required) (*.yml)", false, "",
-    "kiss-config.yml", cmd);
+static TCLAP::ValueArg<double> argMinRange(
+    "", "min-range", "min-range parameter", false, 5.0, "min-range", cmd);
+
+static TCLAP::ValueArg<double> argMaxRange(
+    "", "max-range", "max-range parameter", false, 100.0, "max-range", cmd);
 
 static TCLAP::ValueArg<std::string> arg_outPath(
     "", "output-tum-path",
@@ -247,6 +249,9 @@ static int main_odometry()
 {
     kiss_icp::pipeline::KISSConfig kissCfg;
     kissCfg.voxel_size = 1.0;
+
+    if (argMinRange.isSet()) kissCfg.min_range = argMinRange.getValue();
+    if (argMaxRange.isSet()) kissCfg.max_range = argMaxRange.getValue();
 
     kiss_icp::pipeline::KissICP kissIcp(kissCfg);
 
