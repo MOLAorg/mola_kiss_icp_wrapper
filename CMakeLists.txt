@@ -22,6 +22,7 @@ find_package(mola_input_kitti_dataset) # optional
 find_package(mola_input_rawlog) # optional
 find_package(mola_input_mulran_dataset) # optional
 find_package(mola_input_rosbag2) # optional
+find_package(mola_input_paris_luco_dataset) # optional
 
 # kiss_icp interface:
 mola_add_executable(
@@ -55,6 +56,11 @@ endif()
 if (mola_input_rosbag2_FOUND)
 target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_rosbag2)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_ROSBAG2)
+endif()
+
+if (mola_input_paris_luco_dataset_FOUND)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_paris_luco_dataset)
+target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_PARIS_LUCO)
 endif()
 
 # -----------------------------------------------------------------------------

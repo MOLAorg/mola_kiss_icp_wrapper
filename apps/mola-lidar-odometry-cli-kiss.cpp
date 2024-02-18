@@ -65,6 +65,10 @@
 #include <mola_input_rosbag2/Rosbag2Dataset.h>
 #endif
 
+#if defined(HAVE_MOLA_INPUT_PARIS_LUCO)
+#include <mola_input_paris_luco_dataset/ParisLucoDataset.h>
+#endif
+
 #include <csignal>  // sigaction
 #include <cstdlib>
 #include <iostream>
@@ -131,6 +135,12 @@ static TCLAP::ValueArg<std::string> argMulranSeq(
     "", "input-mulran-seq",
     "INPUT DATASET: Use Mulran dataset sequence KAIST01|KAIST01|...", false,
     "KAIST01", "KAIST01", cmd);
+#endif
+
+#if defined(HAVE_MOLA_INPUT_PARIS_LUCO)
+static TCLAP::SwitchArg argParisLucoSeq(
+    "", "input-paris-luco",
+    "INPUT DATASET: Use Paris Luco dataset (unique sequence=00)", cmd);
 #endif
 
 #if defined(HAVE_MOLA_INPUT_RAWLOG)
@@ -245,6 +255,25 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_mulran(
 }
 #endif
 
+#if defined(HAVE_MOLA_INPUT_PARIS_LUCO)
+std::shared_ptr<mola::OfflineDatasetSource> dataset_from_paris_luco()
+{
+    auto o = std::make_shared<mola::ParisLucoDataset>();
+
+    const auto cfg = mola::Yaml::FromText(mola::parse_yaml(
+        R""""(
+    params:
+      base_dir: ${PARIS_LUCO_BASE_DIR}
+      sequence: '00'  # There is only one sequence in this dataset
+      time_warp_scale: 1.0
+)""""));
+
+    o->initialize(cfg);
+
+    return o;
+}
+#endif
+
 static int main_odometry()
 {
     kiss_icp::pipeline::KISSConfig kissCfg;
@@ -286,6 +315,13 @@ static int main_odometry()
     }
     else
 #endif
+#if defined(HAVE_MOLA_INPUT_PARIS_LUCO)
+        if (argParisLucoSeq.isSet())
+    {
+        dataset = dataset_from_paris_luco();
+    }
+    else
+#endif
     {
         THROW_EXCEPTION(
             "At least one of the dataset input CLI flags must be defined. "
@@ -322,14 +358,34 @@ static int main_odometry()
 
         // mrpt -> Eigen pointcloud
         std::vector<Eigen::Vector3d> inputPts;
+        std::vector<double>          inputPtTimestamps;
+
+        const mrpt::aligned_std_vector<float>* obs_Ts = nullptr;
 
         auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc) {
             const auto&  xs = pc.getPointsBufferRef_x();
             const auto&  ys = pc.getPointsBufferRef_y();
             const auto&  zs = pc.getPointsBufferRef_z();
             const size_t N  = xs.size();
+
             for (size_t j = 0; j < N; j++)
                 inputPts.emplace_back(xs[j], ys[j], zs[j]);
+
+            const auto* Ts = obs_Ts;
+            if (Ts && !Ts->empty())
+            {
+                ASSERT_(Ts->size() == N);
+
+                // KISS ICP assumes times in the range [0,1]:
+
+                const float t0 = *std::min_element(Ts->cbegin(), Ts->cend());
+                const float t1 = *std::max_element(Ts->cbegin(), Ts->cend());
+                ASSERT_(t1 > t0);
+                const float k = 1.0f / (t1 - t0);
+
+                for (size_t j = 0; j < N; j++)
+                    inputPtTimestamps.emplace_back(((*Ts)[j] - t0) * k);
+            }
 
             obsTimes.push_back(obs->timestamp);
         };
@@ -341,6 +397,7 @@ static int main_odometry()
         {
             obsPc->load();
             ASSERT_(obsPc->pointcloud);
+            obs_Ts = obsPc->pointcloud->getPointsBufferRef_timestamp();
         }
 
         {
@@ -351,7 +408,10 @@ static int main_odometry()
 
         if (inputPts.empty()) continue;
 
-        kissIcp.RegisterFrame(inputPts);
+        if (inputPtTimestamps.empty())
+            kissIcp.RegisterFrame(inputPts);
+        else
+            kissIcp.RegisterFrame(inputPts, inputPtTimestamps);
 
         static int cnt = 0;
         if (cnt++ % 20 == 0)

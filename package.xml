@@ -19,13 +19,12 @@
   <depend>mola_kernel</depend>
   <depend>mrpt2</depend>
 
-  <!-- optional -->
+  <!-- dataset input sources (all are actually optional) -->
   <depend>mola_input_kitti_dataset</depend>
-  <depend>mola_input_rawlog</depend>
   <depend>mola_input_mulran_dataset</depend>
+  <depend>mola_input_rawlog</depend>
   <depend>mola_input_rosbag2</depend>
-
-
+  <depend>mola_input_paris_luco</depend>
 
   <doc_depend>doxygen</doc_depend>
 
