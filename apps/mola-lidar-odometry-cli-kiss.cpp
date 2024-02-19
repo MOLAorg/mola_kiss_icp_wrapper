@@ -278,6 +278,7 @@ static int main_odometry()
 {
     kiss_icp::pipeline::KISSConfig kissCfg;
     kissCfg.voxel_size = 1.0;
+    kissCfg.deskew     = true;
 
     if (argMinRange.isSet()) kissCfg.min_range = argMinRange.getValue();
     if (argMaxRange.isSet()) kissCfg.max_range = argMaxRange.getValue();
