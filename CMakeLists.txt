@@ -19,6 +19,7 @@ find_mola_package(mola_kernel)
 # CLI apps
 # ---------------------------------
 find_package(mola_input_kitti_dataset) # optional
+find_package(mola_input_kitti360_dataset) # optional
 find_package(mola_input_rawlog) # optional
 find_package(mola_input_mulran_dataset) # optional
 find_package(mola_input_rosbag2) # optional
@@ -41,6 +42,11 @@ target_link_libraries(mola-lidar-odometry-cli-kiss kiss_icp::pipeline)
 if (mola_input_kitti_dataset_FOUND)
 target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_kitti_dataset)
 target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_KITTI)
+endif()
+
+if (mola_input_kitti360_dataset_FOUND)
+target_link_libraries(mola-lidar-odometry-cli-kiss mola::mola_input_kitti360_dataset)
+target_compile_definitions(mola-lidar-odometry-cli-kiss PRIVATE HAVE_MOLA_INPUT_KITTI360)
 endif()
 
 if (mola_input_mulran_dataset_FOUND)

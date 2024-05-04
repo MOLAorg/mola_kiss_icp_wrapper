@@ -53,6 +53,10 @@
 #include <mola_input_kitti_dataset/KittiOdometryDataset.h>
 #endif
 
+#if defined(HAVE_MOLA_INPUT_KITTI360)
+#include <mola_input_kitti360_dataset/Kitti360Dataset.h>
+#endif
+
 #if defined(HAVE_MOLA_INPUT_MULRAN)
 #include <mola_input_mulran_dataset/MulranDataset.h>
 #endif
@@ -69,7 +73,6 @@
 #include <mola_input_paris_luco_dataset/ParisLucoDataset.h>
 #endif
 
-#include <csignal>  // sigaction
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -130,6 +133,13 @@ static TCLAP::ValueArg<double> argKittiAngleDeg(
     "0.205 [degrees]", cmd);
 #endif
 
+#if defined(HAVE_MOLA_INPUT_KITTI360)
+static TCLAP::ValueArg<std::string> argKitti360Seq(
+    "", "input-kitti360-seq",
+    "INPUT DATASET: Use KITTI360 dataset sequence number 00|01|...", false,
+    "00", "00", cmd);
+#endif
+
 #if defined(HAVE_MOLA_INPUT_MULRAN)
 static TCLAP::ValueArg<std::string> argMulranSeq(
     "", "input-mulran-seq",
@@ -187,6 +197,42 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_kitti(
 
     if (argKittiAngleDeg.isSet())
         o->VERTICAL_ANGLE_OFFSET = mrpt::DEG2RAD(argKittiAngleDeg.getValue());
+
+    // Save GT, if available:
+    if (arg_outPath.isSet() && o->hasGroundTruthTrajectory())
+    {
+        const auto& gtPath = o->getGroundTruthTrajectory();
+
+        gtPath.saveToTextFile_TUM(
+            mrpt::system::fileNameChangeExtension(arg_outPath.getValue(), "") +
+            std::string("_gt.txt"));
+    }
+
+    return o;
+}
+#endif
+
+#if defined(HAVE_MOLA_INPUT_KITTI360)
+std::shared_ptr<mola::OfflineDatasetSource> dataset_from_kitti360(
+    const std::string& kittiSeqNumber)
+{
+    auto o = std::make_shared<mola::Kitti360Dataset>();
+
+    const auto cfg = mola::Yaml::FromText(mola::parse_yaml(mrpt::format(
+        R""""(
+    params:
+      base_dir: ${KITTI360_DATASET}
+      sequence: '%s'
+      time_warp_scale: 1.0
+      clouds_as_organized_points: false
+      publish_lidar: true
+      publish_image_0: false
+      publish_image_1: false
+      publish_ground_truth: true
+)"""",
+        kittiSeqNumber.c_str())));
+
+    o->initialize(cfg);
 
     // Save GT, if available:
     if (arg_outPath.isSet() && o->hasGroundTruthTrajectory())
@@ -302,6 +348,13 @@ static int main_odometry()
     }
     else
 #endif
+#if defined(HAVE_MOLA_INPUT_KITTI360)
+        if (argKitti360Seq.isSet())
+    {
+        dataset = dataset_from_kitti360(argKitti360Seq.getValue());
+    }
+    else
+#endif
 #if defined(HAVE_MOLA_INPUT_MULRAN)
         if (argMulranSeq.isSet())
     {
@@ -363,7 +416,8 @@ static int main_odometry()
 
         const mrpt::aligned_std_vector<float>* obs_Ts = nullptr;
 
-        auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc) {
+        auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc)
+        {
             const auto&  xs = pc.getPointsBufferRef_x();
             const auto&  ys = pc.getPointsBufferRef_y();
             const auto&  zs = pc.getPointsBufferRef_z();
