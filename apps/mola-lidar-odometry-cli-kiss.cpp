@@ -28,6 +28,7 @@
 #include <mola_kernel/interfaces/OfflineDatasetSource.h>
 #include <mola_kernel/pretty_print_exception.h>
 #include <mola_yaml/yaml_helpers.h>
+#include <mp2p_icp_filters/Generator.h>
 #include <mrpt/3rdparty/tclap/CmdLine.h>
 #include <mrpt/core/Clock.h>
 #include <mrpt/core/exceptions.h>
@@ -388,6 +389,9 @@ static int main_odometry()
     size_t nDatasetEntriesToRun = dataset->datasetSize();
     if (arg_firstN.isSet()) nDatasetEntriesToRun = arg_firstN.getValue();
 
+    mp2p_icp_filters::Generator g;
+    g.initialize({});
+
     std::vector<mrpt::Clock::time_point> obsTimes;
 
     std::cout << "\n";  // Needed for the VT100 codes below.
@@ -414,19 +418,17 @@ static int main_odometry()
         std::vector<Eigen::Vector3d> inputPts;
         std::vector<double>          inputPtTimestamps;
 
-        const mrpt::aligned_std_vector<float>* obs_Ts = nullptr;
-
         auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc)
         {
             const auto&  xs = pc.getPointsBufferRef_x();
             const auto&  ys = pc.getPointsBufferRef_y();
             const auto&  zs = pc.getPointsBufferRef_z();
+            const auto*  Ts = pc.getPointsBufferRef_timestamp();  // optional
             const size_t N  = xs.size();
 
             for (size_t j = 0; j < N; j++)
                 inputPts.emplace_back(xs[j], ys[j], zs[j]);
 
-            const auto* Ts = obs_Ts;
             if (Ts && !Ts->empty())
             {
                 ASSERT_(Ts->size() == N);
@@ -445,20 +447,16 @@ static int main_odometry()
             obsTimes.push_back(obs->timestamp);
         };
 
-        if (auto obsPc =
-                std::dynamic_pointer_cast<mrpt::obs::CObservationPointCloud>(
-                    obs);
-            obsPc)
-        {
-            obsPc->load();
-            ASSERT_(obsPc->pointcloud);
-            obs_Ts = obsPc->pointcloud->getPointsBufferRef_timestamp();
-        }
+        // Load lazy-load obs:
+        obs->load();
 
+        // generic conversion to point cloud:
         {
-            mrpt::maps::CSimplePointsMap pts;
-            obs->insertObservationInto(pts);
-            lmbPcToPoints(pts);
+            mp2p_icp::metric_map_t mm;
+            g.process(*obs, mm);
+            const auto rawLayer = mm.point_layer("raw");
+            ASSERT_(rawLayer);
+            lmbPcToPoints(*rawLayer);
         }
 
         if (inputPts.empty()) continue;

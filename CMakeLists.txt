@@ -14,6 +14,7 @@ find_package(mola_common REQUIRED)
 # find dependencies:
 find_package(mrpt-maps REQUIRED)
 find_package(mrpt-tclap REQUIRED)
+find_package(mp2p_icp_filters REQUIRED)
 find_mola_package(mola_kernel)
 
 # CLI apps
@@ -33,6 +34,7 @@ mola_add_executable(
 		mrpt::maps
 		mrpt::tclap
 		mola::mola_kernel
+		mola::mp2p_icp_filters
 )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/submodules/kiss-icp/cpp/kiss_icp ${CMAKE_CURRENT_BINARY_DIR}/kiss_icp)
