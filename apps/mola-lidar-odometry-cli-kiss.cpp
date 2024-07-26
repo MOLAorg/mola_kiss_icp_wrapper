@@ -121,7 +121,7 @@ static TCLAP::ValueArg<std::string> arg_lidarLabel(
     "If provided, this supersedes the values in the 'lidar_sensor_labels' "
     "entry of the odometry pipeline, defining the sensorLabel/topic name to "
     "read LIDAR data from. It can be a regular expression (std::regex)",
-    false, "lidar1", "lidar1", cmd);
+    false, "", "", cmd);
 
 #if defined(HAVE_MOLA_INPUT_KITTI)
 static TCLAP::ValueArg<std::string> argKittiSeq(
@@ -413,6 +413,10 @@ static int main_odometry()
         if (!obs) obs = sf->getObservationByClass<CObservationVelodyneScan>();
 
         if (!obs) continue;
+
+        if (!arg_lidarLabel.getValue().empty() &&
+            obs->sensorLabel != arg_lidarLabel.getValue())
+            continue;
 
         // mrpt -> Eigen pointcloud
         std::vector<Eigen::Vector3d> inputPts;
