@@ -93,6 +93,8 @@ static TCLAP::ValueArg<std::string> arg_outPath(
     "docs)",
     false, "output-trajectory.txt", "output-trajectory.txt", cmd);
 
+static TCLAP::SwitchArg argNoDeskew("", "no-deskew", "Skip scan de-skew", cmd);
+
 static TCLAP::ValueArg<int> arg_firstN(
     "", "only-first-n", "Run for the first N steps only (0=default, not used)",
     false, 0, "Number of dataset entries to run", cmd);
@@ -329,6 +331,7 @@ static int main_odometry()
 
     if (argMinRange.isSet()) kissCfg.min_range = argMinRange.getValue();
     if (argMaxRange.isSet()) kissCfg.max_range = argMaxRange.getValue();
+    if (argNoDeskew.isSet()) kissCfg.deskew = false;
 
     kiss_icp::pipeline::KissICP kissIcp(kissCfg);
 
