@@ -33,6 +33,7 @@
 #include <mrpt/core/Clock.h>
 #include <mrpt/core/exceptions.h>
 #include <mrpt/io/lazy_load_path.h>
+#include <mrpt/maps/CPointsMapXYZIRT.h>
 #include <mrpt/maps/CSimplePointsMap.h>
 #include <mrpt/obs/CObservation2DRangeScan.h>
 #include <mrpt/obs/CObservation3DRangeScan.h>
@@ -47,6 +48,7 @@
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/os.h>
 #include <mrpt/system/progress.h>
+#include <mrpt/version.h>
 
 #include <kiss_icp/pipeline/KissICP.hpp>
 
@@ -427,14 +429,22 @@ static int main_odometry()
 
         auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc)
         {
-            const auto&  xs = pc.getPointsBufferRef_x();
-            const auto&  ys = pc.getPointsBufferRef_y();
-            const auto&  zs = pc.getPointsBufferRef_z();
-            const auto*  Ts = pc.getPointsBufferRef_timestamp();  // optional
-            const size_t N  = xs.size();
+            const auto& xs = pc.getPointsBufferRef_x();
+            const auto& ys = pc.getPointsBufferRef_y();
+            const auto& zs = pc.getPointsBufferRef_z();
+
+#if MRPT_VERSION >= 0x020f00  // 2.15.0
+            auto* Ts = pc.getPointsBufferRef_float_field(
+                mrpt::maps::CPointsMapXYZIRT::POINT_FIELD_TIMESTAMP);
+#else
+            const auto* Ts = pc.getPointsBufferRef_timestamp();  // optional
+#endif
+            const size_t N = xs.size();
 
             for (size_t j = 0; j < N; j++)
+            {
                 inputPts.emplace_back(xs[j], ys[j], zs[j]);
+            }
 
             if (Ts && !Ts->empty())
             {
