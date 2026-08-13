@@ -268,12 +268,15 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag2(
         R""""(
     params:
       rosbag_filename: '%s'
-      base_link_frame_id: 'base_footprint'
+      base_link_frame_id: "${MOLA_TF_BASE_LINK|base_footprint}"
       sensors:
         - topic: '%s'
           type: CObservationPointCloud
-          # If present, this will override whatever /tf tells about the sensor pose:
-          fixed_sensor_pose: "0 0 0 0 0 0"  # 'x y z yaw_deg pitch_deg roll_deg'
+          # Same env var names as the sibling MOLA odometry CLIs, so one
+          # override snippet serves every method. Bags without /tf need this.
+          fixed_sensor_pose: "${LIDAR_POSE_X|0} ${LIDAR_POSE_Y|0} ${LIDAR_POSE_Z|0} ${LIDAR_POSE_YAW|0} ${LIDAR_POSE_PITCH|0} ${LIDAR_POSE_ROLL|0}"
+          # Defaults to true, which is this CLI's long-standing behavior here.
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|true}
 )"""",
         rosbag2file.c_str(), arg_lidarLabel.getValue().c_str())));
 
