@@ -37,6 +37,14 @@ mola_add_executable(
 		mola::mp2p_icp_filters
 )
 
+# kiss-icp fetches Sophus and tsl-robin-map when the system has no copy, and
+# those tarballs still declare cmake_minimum_required(VERSION <3.5), which
+# CMake 4 refuses outright. Set the floor for the vendored subtree so the
+# build works on a modern CMake without every consumer having to pass
+# -DCMAKE_POLICY_VERSION_MINIMUM on the command line. Scoped to this
+# add_subdirectory rather than set globally: it is a statement about the
+# vendored third-party code, not about this package.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/submodules/kiss-icp/cpp/kiss_icp ${CMAKE_CURRENT_BINARY_DIR}/kiss_icp)
 target_include_directories(mola-lidar-odometry-cli-kiss PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/submodules/kiss-icp/include)
 target_link_libraries(mola-lidar-odometry-cli-kiss kiss_icp::pipeline)

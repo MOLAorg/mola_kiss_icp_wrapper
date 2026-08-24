@@ -48,6 +48,7 @@
 #include <mrpt/system/filesystem.h>
 #include <mrpt/system/os.h>
 #include <mrpt/system/progress.h>
+#include <mrpt/system/string_utils.h>
 #include <mrpt/version.h>
 
 #include <kiss_icp/pipeline/KissICP.hpp>
@@ -264,10 +265,32 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag2(
 
     auto o = std::make_shared<mola::Rosbag2Dataset>();
 
+    // A comma-separated value becomes a YAML sequence, so a recording split
+    // across several bag directories (e.g. Oxford Spires keble-college-04,
+    // two halves of one continuous recording) is replayed as the single
+    // sequence it is. Rosbag2Dataset accepts a scalar or a sequence. Same
+    // handling, and the same spelling of the input, as the sibling
+    // mola-lidar-odometry-cli, so one caller can drive either binary.
+    std::string bagsYaml;
+    {
+        std::vector<std::string> parts;
+        mrpt::system::tokenize(rosbag2file, ",", parts);
+        ASSERT_(!parts.empty());
+        if (parts.size() == 1)
+        {
+            bagsYaml = "'" + mrpt::system::trim(parts[0]) + "'";
+        }
+        else
+        {
+            for (const auto& bp : parts)
+                bagsYaml += "\n        - '" + mrpt::system::trim(bp) + "'";
+        }
+    }
+
     const auto cfg = mola::Yaml::FromText(mola::parse_yaml(mrpt::format(
         R""""(
     params:
-      rosbag_filename: '%s'
+      rosbag_filename: %s
       base_link_frame_id: "${MOLA_TF_BASE_LINK|base_footprint}"
       sensors:
         - topic: '%s'
@@ -278,7 +301,7 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag2(
           # Defaults to true, which is this CLI's long-standing behavior here.
           use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|true}
 )"""",
-        rosbag2file.c_str(), arg_lidarLabel.getValue().c_str())));
+        bagsYaml.c_str(), arg_lidarLabel.getValue().c_str())));
 
     o->initialize(cfg);
 
@@ -463,8 +486,6 @@ static int main_odometry()
                 for (size_t j = 0; j < N; j++)
                     inputPtTimestamps.emplace_back(((*Ts)[j] - t0) * k);
             }
-
-            obsTimes.push_back(obs->timestamp);
         };
 
         // Load lazy-load obs:
@@ -480,6 +501,16 @@ static int main_odometry()
         }
 
         if (inputPts.empty()) continue;
+
+        // Pushed here, next to the RegisterFrame() that produces the matching
+        // pose, and NOT while converting the cloud: a scan that converts to
+        // zero points is skipped by the `continue` above without adding a
+        // pose, so recording its timestamp earlier left obsTimes one entry
+        // ahead of kissIcp.poses() and shifted the timestamp of every later
+        // pose by one scan -- silently, since the trajectory still looked
+        // well-formed. The two containers now grow together by construction,
+        // which the assertion after the loop re-checks.
+        obsTimes.push_back(obs->timestamp);
 
         if (inputPtTimestamps.empty())
             kissIcp.RegisterFrame(inputPts);
@@ -516,6 +547,12 @@ static int main_odometry()
 
         const auto                       path = kissIcp.poses();
         mrpt::poses::CPose3DInterpolator lastEstimatedTrajectory;
+
+        // One timestamp per registered frame, one pose per registered frame.
+        // Checked rather than assumed: indexing obsTimes by pose number is
+        // only correct while that holds, and reading past its end would be
+        // undefined behavior rather than a visible failure.
+        ASSERT_EQUAL_(path.size(), obsTimes.size());
         for (size_t i = 0; i < path.size(); i++)
         {
             mrpt::poses::CPose3D pose =
