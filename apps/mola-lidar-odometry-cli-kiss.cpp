@@ -73,6 +73,10 @@
 #include <mola_input_rosbag2/Rosbag2Dataset.h>
 #endif
 
+#if defined(HAVE_MOLA_INPUT_ROSBAG1)
+#include <mola_input_rosbag1/Rosbag1Dataset.h>
+#endif
+
 #if defined(HAVE_MOLA_INPUT_PARIS_LUCO)
 #include <mola_input_paris_luco_dataset/ParisLucoDataset.h>
 #endif
@@ -119,6 +123,15 @@ static TCLAP::ValueArg<std::string> argRosbag2(
     "", "input-rosbag2",
     "INPUT DATASET: rosbag2. Input dataset in rosbag2 format (*.mcap)", false,
     "dataset.mcap", "dataset.mcap", cmd);
+#endif
+
+#if defined(HAVE_MOLA_INPUT_ROSBAG1)
+static TCLAP::ValueArg<std::string> argRosbag1(
+    "", "input-rosbag1",
+    "INPUT DATASET: rosbag1. Input dataset in ROS 1 bag format (*.bag). "
+    "Accepts several comma-separated files, replayed as one chronological "
+    "sequence",
+    false, "dataset.bag", "dataset.bag", cmd);
 #endif
 
 static TCLAP::ValueArg<std::string> arg_lidarLabel(
@@ -309,6 +322,65 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag2(
 }
 #endif
 
+#if defined(HAVE_MOLA_INPUT_ROSBAG1)
+std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag1(
+    const std::string& rosbag1file)
+{
+    ASSERTMSG_(
+        arg_lidarLabel.isSet(),
+        "Using a rosbag1 as input requires telling what is the lidar topic "
+        "with --lidar-sensor-label <TOPIC_NAME>");
+
+    auto o = std::make_shared<mola::Rosbag1Dataset>();
+
+    // A comma-separated value becomes a YAML sequence, so a recording split
+    // across several bag files is replayed as the single sequence it is.
+    // Rosbag1Dataset accepts either a scalar or a sequence. This matters more
+    // here than for rosbag2: the ROS 1-era datasets in this corpus are split
+    // into fixed-size chunks, up to sixteen of them for one sequence.
+    std::string bagsYaml;
+    {
+        std::vector<std::string> parts;
+        mrpt::system::tokenize(rosbag1file, ",", parts);
+        ASSERT_(!parts.empty());
+        if (parts.size() == 1)
+        {
+            bagsYaml = "'" + mrpt::system::trim(parts[0]) + "'";
+        }
+        else
+        {
+            for (const auto& p : parts)
+                bagsYaml += "\n        - '" + mrpt::system::trim(p) + "'";
+        }
+    }
+
+    // Only a lidar entry: KISS-ICP is pure LiDAR odometry, with no IMU input
+    // at all, so an imu sensor entry here would be read from the bag and
+    // then dropped. Same env var names as dataset_from_rosbag2() above, so
+    // one override snippet -- and the same dataset profiles -- serve both.
+    const auto cfg = mola::Yaml::FromText(mola::parse_yaml(mrpt::format(
+        R""""(
+    params:
+      rosbag_filename: %s
+      base_link_frame_id: "${MOLA_TF_BASE_LINK|base_footprint}"
+      sensors:
+        - topic: '%s'
+          type: CObservationPointCloud
+          fixed_sensor_pose: "${LIDAR_POSE_X|0} ${LIDAR_POSE_Y|0} ${LIDAR_POSE_Z|0} ${LIDAR_POSE_YAW|0} ${LIDAR_POSE_PITCH|0} ${LIDAR_POSE_ROLL|0}"
+          # Defaults to true, matching dataset_from_rosbag2() above rather
+          # than mola-lidar-odometry-cli's false: the two CLIs have always
+          # disagreed on this default, and the dataset profiles set it
+          # explicitly, which is what keeps every method on one rig.
+          use_fixed_sensor_pose: ${MOLA_USE_FIXED_LIDAR_POSE|true}
+)"""",
+        bagsYaml.c_str(), arg_lidarLabel.getValue().c_str())));
+
+    o->initialize(cfg);
+
+    return o;
+}
+#endif
+
 #if defined(HAVE_MOLA_INPUT_MULRAN)
 std::shared_ptr<mola::OfflineDatasetSource> dataset_from_mulran(
     const std::string& mulranSequence)
@@ -398,6 +470,13 @@ static int main_odometry()
         if (argRosbag2.isSet())
     {
         dataset = dataset_from_rosbag2(argRosbag2.getValue());
+    }
+    else
+#endif
+#if defined(HAVE_MOLA_INPUT_ROSBAG1)
+        if (argRosbag1.isSet())
+    {
+        dataset = dataset_from_rosbag1(argRosbag1.getValue());
     }
     else
 #endif
