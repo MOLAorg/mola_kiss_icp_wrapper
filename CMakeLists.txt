@@ -12,8 +12,8 @@ project(mola_kiss_icp_wrapper LANGUAGES CXX)
 find_package(mola_common REQUIRED)
 
 # find dependencies:
-find_package(mrpt-maps REQUIRED)
-find_package(mrpt-tclap REQUIRED)
+find_package(mrpt_maps REQUIRED)
+find_package(CLI11 REQUIRED)
 find_package(mp2p_icp_filters REQUIRED)
 find_mola_package(mola_kernel)
 
@@ -32,8 +32,8 @@ mola_add_executable(
 	TARGET  mola-lidar-odometry-cli-kiss
 	SOURCES apps/mola-lidar-odometry-cli-kiss.cpp
 	LINK_LIBRARIES
-		mrpt::maps
-		mrpt::tclap
+		mrpt::mrpt_maps
+		CLI11::CLI11
 		mola::mola_kernel
 		mola::mp2p_icp_filters
 )
