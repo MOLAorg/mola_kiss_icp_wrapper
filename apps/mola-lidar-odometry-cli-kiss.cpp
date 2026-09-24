@@ -525,11 +525,16 @@ static int main_odometry()
 
                 const float t0 = *std::min_element(Ts->cbegin(), Ts->cend());
                 const float t1 = *std::max_element(Ts->cbegin(), Ts->cend());
-                ASSERT_(t1 > t0);
-                const float k = 1.0f / (t1 - t0);
 
-                for (size_t j = 0; j < N; j++)
-                    inputPtTimestamps.emplace_back(((*Ts)[j] - t0) * k);
+                // A constant time field (e.g. instantaneous, simulated
+                // scans) carries no timing: handle it as a missing one.
+                if (t1 > t0)
+                {
+                    const float k = 1.0f / (t1 - t0);
+
+                    for (size_t j = 0; j < N; j++)
+                        inputPtTimestamps.emplace_back(((*Ts)[j] - t0) * k);
+                }
             }
         };
 
