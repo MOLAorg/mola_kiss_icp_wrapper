@@ -93,6 +93,9 @@ static bool   argMinRange_set{false};
 static double argMaxRange{100.0};
 static bool   argMaxRange_set{false};
 
+static double argVoxelSize{1.0};
+static bool   argVoxelSize_set{false};
+
 static std::string arg_outPath{"output-trajectory.txt"};
 static bool        arg_outPath_set{false};
 
@@ -396,12 +399,14 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_paris_luco()
 static int main_odometry()
 {
     kiss_icp::pipeline::KISSConfig kissCfg;
-    kissCfg.voxel_size = 1.0;
-    kissCfg.deskew     = true;
+    kissCfg.deskew = true;
 
-    if (argMinRange_set) kissCfg.min_range = argMinRange;
-    if (argMaxRange_set) kissCfg.max_range = argMaxRange;
-    if (argNoDeskew) kissCfg.deskew = false;
+    if (argMinRange_set) { kissCfg.min_range = argMinRange; }
+    if (argMaxRange_set) { kissCfg.max_range = argMaxRange; }
+    // Same default as the upstream pipeline: one hundredth of the max range.
+    kissCfg.voxel_size =
+        argVoxelSize_set ? argVoxelSize : kissCfg.max_range / 100.0;
+    if (argNoDeskew) { kissCfg.deskew = false; }
 
     kiss_icp::pipeline::KissICP kissIcp(kissCfg);
 
@@ -624,6 +629,9 @@ int main(int argc, char** argv)
             cmd.add_option("--min-range", argMinRange, "min-range parameter");
         auto* optMaxRange =
             cmd.add_option("--max-range", argMaxRange, "max-range parameter");
+        auto* optVoxelSize = cmd.add_option(
+            "--voxel-size", argVoxelSize,
+            "Map voxel size [m] (default: max-range / 100)");
         auto* optOutPath = cmd.add_option(
             "--output-tum-path", arg_outPath,
             "Save the estimated path as a TXT file using the TUM file format "
@@ -694,10 +702,11 @@ int main(int argc, char** argv)
 
         CLI11_PARSE(cmd, argc, argv);
 
-        argMinRange_set = (optMinRange->count() > 0);
-        argMaxRange_set = (optMaxRange->count() > 0);
-        arg_outPath_set = (optOutPath->count() > 0);
-        arg_firstN_set  = (optFirstN->count() > 0);
+        argMinRange_set  = (optMinRange->count() > 0);
+        argMaxRange_set  = (optMaxRange->count() > 0);
+        argVoxelSize_set = (optVoxelSize->count() > 0);
+        arg_outPath_set  = (optOutPath->count() > 0);
+        arg_firstN_set   = (optFirstN->count() > 0);
 #if defined(HAVE_MOLA_INPUT_RAWLOG)
         argRawlog_set = (optRawlog->count() > 0);
 #endif
