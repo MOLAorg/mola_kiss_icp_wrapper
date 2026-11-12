@@ -1,0 +1,63 @@
+name: CI Build colcon
+
+on:
+  push:
+    branches: ["develop"]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push supersedes a build still running for the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.ros_distribution }}
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    strategy:
+      fail-fast: false
+      matrix:
+        ros_distribution: [jazzy, lyrical]
+    container:
+      image: ros:${{ matrix.ros_distribution }}
+
+    steps:
+      # git must be present before checkout, or it falls back to a tarball
+      # without submodules.
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y git python3-colcon-common-extensions python3-rosdep ros-dev-tools
+          test -f /etc/ros/rosdep/sources.list.d/20-default.list || rosdep init
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install rosdep dependencies
+        run: |
+          . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+          rosdep update
+          rosdep install --from-paths . --ignore-src -y
+
+      - name: Build with colcon
+        run: |
+          . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+          MAKEFLAGS="-j$(nproc)" colcon build \
+            --event-handlers console_direct+ \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+      - name: Run unit tests
+        run: |
+          . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+          colcon test --event-handlers console_direct+
+          colcon test-result --verbose

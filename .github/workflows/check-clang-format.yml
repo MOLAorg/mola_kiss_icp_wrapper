@@ -1,0 +1,34 @@
+name: CI clang-format
+
+on:
+  push:
+    branches: ["develop"]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  clang-format-check:
+    name: clang-format-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # clang-format-14 is no longer packaged for recent Ubuntu runners:
+      - name: Install clang-format-14
+        run: |
+          pipx install clang-format==14.0.6
+          clang-format --version
+
+      # Vendored third-party code keeps its upstream style, so only the
+      # wrapper's own sources are checked.
+      - name: Check code style
+        run: |
+          git ls-files 'apps' \
+            | grep -E '\.(h|hpp|cpp)$' \
+            | xargs --no-run-if-empty clang-format --dry-run --Werror

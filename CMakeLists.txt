@@ -96,5 +96,10 @@ if (DETECTED_ROS2)
 	#  rclcpp...
 	#)
 
+	if(BUILD_TESTING)
+		# Smoke test: the CLI links, loads and parses its arguments.
+		add_test(NAME cli_help COMMAND mola-lidar-odometry-cli-kiss --help)
+	endif()
+
 	ament_package()
 endif()
