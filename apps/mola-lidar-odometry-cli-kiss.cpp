@@ -96,6 +96,12 @@ static bool   argMaxRange_set{false};
 static double argVoxelSize{1.0};
 static bool   argVoxelSize_set{false};
 
+static int argMaxPointsPerVoxel{
+    kiss_icp::pipeline::KISSConfig{}.max_points_per_voxel};
+static double argInitialThreshold{
+    kiss_icp::pipeline::KISSConfig{}.initial_threshold};
+static double argMinMotionTh{kiss_icp::pipeline::KISSConfig{}.min_motion_th};
+
 static std::string arg_outPath{"output-trajectory.txt"};
 static bool        arg_outPath_set{false};
 
@@ -406,6 +412,9 @@ static int main_odometry()
     // Same default as the upstream pipeline: one hundredth of the max range.
     kissCfg.voxel_size =
         argVoxelSize_set ? argVoxelSize : kissCfg.max_range / 100.0;
+    kissCfg.max_points_per_voxel = argMaxPointsPerVoxel;
+    kissCfg.initial_threshold    = argInitialThreshold;
+    kissCfg.min_motion_th        = argMinMotionTh;
     if (argNoDeskew) { kissCfg.deskew = false; }
 
     kiss_icp::pipeline::KissICP kissIcp(kissCfg);
@@ -632,6 +641,15 @@ int main(int argc, char** argv)
         auto* optVoxelSize = cmd.add_option(
             "--voxel-size", argVoxelSize,
             "Map voxel size [m] (default: max-range / 100)");
+        cmd.add_option(
+            "--max-points-per-voxel", argMaxPointsPerVoxel,
+            "Map points kept per voxel");
+        cmd.add_option(
+            "--initial-threshold", argInitialThreshold,
+            "Initial correspondence threshold [m] of the adaptive threshold");
+        cmd.add_option(
+            "--min-motion-th", argMinMotionTh,
+            "Minimum motion [m] to update the adaptive threshold");
         auto* optOutPath = cmd.add_option(
             "--output-tum-path", arg_outPath,
             "Save the estimated path as a TXT file using the TUM file format "
