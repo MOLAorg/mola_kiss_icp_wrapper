@@ -630,13 +630,16 @@ int main(int argc, char** argv)
             ->capture_default_str();
         cmd.add_option("--max-range", argMaxRange, "Maximum point range [m]")
             ->capture_default_str();
-        auto* optVoxelSize = cmd.add_option(
-            "--voxel-size", argVoxelSize,
-            "Map voxel size [m] (default: max-range / 100)");
+        auto* optVoxelSize =
+            cmd.add_option(
+                   "--voxel-size", argVoxelSize,
+                   "Map voxel size [m] (default: max-range / 100)")
+                ->check(CLI::PositiveNumber);
         cmd.add_option(
                "--max-points-per-voxel", argMaxPointsPerVoxel,
                "Map points kept per voxel")
-            ->capture_default_str();
+            ->capture_default_str()
+            ->check(CLI::PositiveNumber);
         cmd.add_option(
                "--initial-threshold", argInitialThreshold,
                "Initial correspondence threshold [m] of the adaptive "
@@ -649,7 +652,8 @@ int main(int argc, char** argv)
         cmd.add_option(
                "--max-num-iterations", argMaxNumIterations,
                "Maximum number of ICP iterations per scan")
-            ->capture_default_str();
+            ->capture_default_str()
+            ->check(CLI::PositiveNumber);
         cmd.add_option(
                "--convergence-criterion", argConvergenceCriterion,
                "ICP stops when the norm of the pose increment is below this")

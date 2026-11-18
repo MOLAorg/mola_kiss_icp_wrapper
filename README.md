@@ -3,6 +3,8 @@ Wrapper to use Kiss ICP on MOLA dataset sources via CLI
 
 KISS-ICP's C++ core is built from the submodule `submodules/kiss-icp`, branch
 `v1.3.0-mola` of `MOLAorg/kiss-icp-optional-tbb` (upstream KISS-ICP v1.3.0).
+It needs TBB and Eigen. Sophus and robin-map are fetched at configure time
+if they are not installed, which needs CMake 3.24 or newer.
 
 ## Usage
 
@@ -10,8 +12,10 @@ KISS-ICP's C++ core is built from the submodule `submodules/kiss-icp`, branch
       --lidar-sensor-label lidar1 --min-range 0.5 --max-range 60 \
       --output-tum-path trajectory.tum
 
-Other inputs: `--input-rosbag2`, `--input-rosbag1`, `--input-kitti-seq`,
-`--input-kitti360-seq`, `--input-mulran-seq`, `--input-paris-luco`.
+Each input flag exists only if its MOLA input package was found at build
+time (`--input-rawlog` needs `mola_input_rawlog`). The others are
+`--input-rosbag2`, `--input-rosbag1`, `--input-kitti-seq`,
+`--input-kitti360-seq`, `--input-mulran-seq` and `--input-paris-luco`.
 See `--help`.
 
 ## KISS-ICP parameters
