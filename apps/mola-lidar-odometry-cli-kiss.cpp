@@ -84,71 +84,74 @@
 #include <iostream>
 #include <string>
 
+namespace
+{
 // Declare supported cli switches ===========
-static CLI::App cmd{"mola-lidar-odometry-cli-kiss"};
+CLI::App cmd{"mola-lidar-odometry-cli-kiss"};
 
-static double argMinRange{5.0};
-static bool   argMinRange_set{false};
+// Defaults of the upstream C++ pipeline:
+const kiss_icp::pipeline::KISSConfig kissDefaults;
 
-static double argMaxRange{100.0};
-static bool   argMaxRange_set{false};
+double argMinRange{kissDefaults.min_range};
+double argMaxRange{kissDefaults.max_range};
 
-static double argVoxelSize{1.0};
-static bool   argVoxelSize_set{false};
+double argVoxelSize{kissDefaults.voxel_size};
+bool   argVoxelSize_set{false};
 
-static int argMaxPointsPerVoxel{
-    kiss_icp::pipeline::KISSConfig{}.max_points_per_voxel};
-static double argInitialThreshold{
-    kiss_icp::pipeline::KISSConfig{}.initial_threshold};
-static double argMinMotionTh{kiss_icp::pipeline::KISSConfig{}.min_motion_th};
+int    argMaxPointsPerVoxel{kissDefaults.max_points_per_voxel};
+double argInitialThreshold{kissDefaults.initial_threshold};
+double argMinMotionTh{kissDefaults.min_motion_th};
+int    argMaxNumIterations{kissDefaults.max_num_iterations};
+double argConvergenceCriterion{kissDefaults.convergence_criterion};
+int    argNumThreads{kissDefaults.max_num_threads};
 
-static std::string arg_outPath{"output-trajectory.txt"};
-static bool        arg_outPath_set{false};
+std::string arg_outPath{"output-trajectory.txt"};
+bool        arg_outPath_set{false};
 
-static bool argNoDeskew{false};
+bool argNoDeskew{false};
 
-static int  arg_firstN{0};
-static bool arg_firstN_set{false};
+int  arg_firstN{0};
+bool arg_firstN_set{false};
 
 // Input dataset can come from one of these:
 // --------------------------------------------
 #if defined(HAVE_MOLA_INPUT_RAWLOG)
-static std::string argRawlog{"dataset.rawlog"};
-static bool        argRawlog_set{false};
+std::string argRawlog{"dataset.rawlog"};
+bool        argRawlog_set{false};
 #endif
 
 #if defined(HAVE_MOLA_INPUT_ROSBAG2)
-static std::string argRosbag2{"dataset.mcap"};
-static bool        argRosbag2_set{false};
+std::string argRosbag2{"dataset.mcap"};
+bool        argRosbag2_set{false};
 #endif
 
 #if defined(HAVE_MOLA_INPUT_ROSBAG1)
-static std::string argRosbag1{"dataset.bag"};
-static bool        argRosbag1_set{false};
+std::string argRosbag1{"dataset.bag"};
+bool        argRosbag1_set{false};
 #endif
 
-static std::string arg_lidarLabel;
-static bool        arg_lidarLabel_set{false};
+std::string arg_lidarLabel;
+bool        arg_lidarLabel_set{false};
 
 #if defined(HAVE_MOLA_INPUT_KITTI)
-static std::string argKittiSeq{"00"};
-static bool        argKittiSeq_set{false};
-static double      argKittiAngleDeg{0.205};
-static bool        argKittiAngleDeg_set{false};
+std::string argKittiSeq{"00"};
+bool        argKittiSeq_set{false};
+double      argKittiAngleDeg{0.205};
+bool        argKittiAngleDeg_set{false};
 #endif
 
 #if defined(HAVE_MOLA_INPUT_KITTI360)
-static std::string argKitti360Seq{"00"};
-static bool        argKitti360Seq_set{false};
+std::string argKitti360Seq{"00"};
+bool        argKitti360Seq_set{false};
 #endif
 
 #if defined(HAVE_MOLA_INPUT_MULRAN)
-static std::string argMulranSeq{"KAIST01"};
-static bool        argMulranSeq_set{false};
+std::string argMulranSeq{"KAIST01"};
+bool        argMulranSeq_set{false};
 #endif
 
 #if defined(HAVE_MOLA_INPUT_PARIS_LUCO)
-static bool argParisLucoSeq{false};
+bool argParisLucoSeq{false};
 #endif
 
 #if defined(HAVE_MOLA_INPUT_RAWLOG)
@@ -402,20 +405,21 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_paris_luco()
 }
 #endif
 
-static int main_odometry()
+int main_odometry()
 {
     kiss_icp::pipeline::KISSConfig kissCfg;
-    kissCfg.deskew = true;
-
-    if (argMinRange_set) { kissCfg.min_range = argMinRange; }
-    if (argMaxRange_set) { kissCfg.max_range = argMaxRange; }
+    kissCfg.min_range = argMinRange;
+    kissCfg.max_range = argMaxRange;
     // Same default as the upstream pipeline: one hundredth of the max range.
     kissCfg.voxel_size =
         argVoxelSize_set ? argVoxelSize : kissCfg.max_range / 100.0;
-    kissCfg.max_points_per_voxel = argMaxPointsPerVoxel;
-    kissCfg.initial_threshold    = argInitialThreshold;
-    kissCfg.min_motion_th        = argMinMotionTh;
-    if (argNoDeskew) { kissCfg.deskew = false; }
+    kissCfg.max_points_per_voxel  = argMaxPointsPerVoxel;
+    kissCfg.initial_threshold     = argInitialThreshold;
+    kissCfg.min_motion_th         = argMinMotionTh;
+    kissCfg.max_num_iterations    = argMaxNumIterations;
+    kissCfg.convergence_criterion = argConvergenceCriterion;
+    kissCfg.max_num_threads       = argNumThreads;
+    kissCfg.deskew                = !argNoDeskew;
 
     kiss_icp::pipeline::KissICP kissIcp(kissCfg);
 
@@ -483,7 +487,7 @@ static int main_odometry()
     mp2p_icp_filters::Generator g;
     g.initialize({});
 
-    std::vector<mrpt::Clock::time_point> obsTimes;
+    mrpt::poses::CPose3DInterpolator estimatedTrajectory;
 
     std::cout << "\n";  // Needed for the VT100 codes below.
 
@@ -511,6 +515,8 @@ static int main_odometry()
         // mrpt -> Eigen pointcloud
         std::vector<Eigen::Vector3d> inputPts;
         std::vector<double>          inputPtTimestamps;
+        // Latest point time [s], relative to the observation timestamp:
+        double lastPointTime = 0;
 
         auto lmbPcToPoints = [&](const mrpt::maps::CPointsMap& pc)
         {
@@ -548,6 +554,8 @@ static int main_odometry()
 
                     for (size_t j = 0; j < N; j++)
                         inputPtTimestamps.emplace_back(((*Ts)[j] - t0) * k);
+
+                    lastPointTime = t1;
                 }
             }
         };
@@ -566,20 +574,18 @@ static int main_odometry()
 
         if (inputPts.empty()) continue;
 
-        // Pushed here, next to the RegisterFrame() that produces the matching
-        // pose, and NOT while converting the cloud: a scan that converts to
-        // zero points is skipped by the `continue` above without adding a
-        // pose, so recording its timestamp earlier left obsTimes one entry
-        // ahead of kissIcp.poses() and shifted the timestamp of every later
-        // pose by one scan -- silently, since the trajectory still looked
-        // well-formed. The two containers now grow together by construction,
-        // which the assertion after the loop re-checks.
-        obsTimes.push_back(obs->timestamp);
+        // Empty timestamps: no de-skew for this scan.
+        kissIcp.RegisterFrame(inputPts, inputPtTimestamps);
 
-        if (inputPtTimestamps.empty())
-            kissIcp.RegisterFrame(inputPts);
-        else
-            kissIcp.RegisterFrame(inputPts, inputPtTimestamps);
+        // A de-skewed scan is expressed at the time of its latest point, so
+        // that is the time the estimated pose refers to.
+        const bool deskewed = kissCfg.deskew && !inputPtTimestamps.empty();
+        const auto poseTime =
+            deskewed ? mrpt::system::timestampAdd(obs->timestamp, lastPointTime)
+                     : obs->timestamp;
+        estimatedTrajectory.insert(
+            poseTime, mrpt::poses::CPose3D::FromHomogeneousMatrix(
+                          kissIcp.pose().matrix()));
 
         static int cnt = 0;
         if (cnt++ % 20 == 0)
@@ -609,47 +615,54 @@ static int main_odometry()
         std::cout << "\nSaving estimated path in TUM format to: " << arg_outPath
                   << std::endl;
 
-        const auto                       path = kissIcp.poses();
-        mrpt::poses::CPose3DInterpolator lastEstimatedTrajectory;
-
-        // One timestamp per registered frame, one pose per registered frame.
-        // Checked rather than assumed: indexing obsTimes by pose number is
-        // only correct while that holds, and reading past its end would be
-        // undefined behavior rather than a visible failure.
-        ASSERT_EQUAL_(path.size(), obsTimes.size());
-        for (size_t i = 0; i < path.size(); i++)
-        {
-            mrpt::poses::CPose3D pose =
-                mrpt::poses::CPose3D::FromHomogeneousMatrix(path[i].matrix());
-            lastEstimatedTrajectory.insert(obsTimes[i], pose);
-        }
-
-        lastEstimatedTrajectory.saveToTextFile_TUM(arg_outPath);
+        estimatedTrajectory.saveToTextFile_TUM(arg_outPath);
     }
 
     return 0;
 }
+}  // namespace
 
 int main(int argc, char** argv)
 {
     try
     {
-        auto* optMinRange =
-            cmd.add_option("--min-range", argMinRange, "min-range parameter");
-        auto* optMaxRange =
-            cmd.add_option("--max-range", argMaxRange, "max-range parameter");
-        auto* optVoxelSize = cmd.add_option(
-            "--voxel-size", argVoxelSize,
-            "Map voxel size [m] (default: max-range / 100)");
+        cmd.add_option("--min-range", argMinRange, "Minimum point range [m]")
+            ->capture_default_str();
+        cmd.add_option("--max-range", argMaxRange, "Maximum point range [m]")
+            ->capture_default_str();
+        auto* optVoxelSize =
+            cmd.add_option(
+                   "--voxel-size", argVoxelSize,
+                   "Map voxel size [m] (default: max-range / 100)")
+                ->check(CLI::PositiveNumber);
         cmd.add_option(
-            "--max-points-per-voxel", argMaxPointsPerVoxel,
-            "Map points kept per voxel");
+               "--max-points-per-voxel", argMaxPointsPerVoxel,
+               "Map points kept per voxel")
+            ->capture_default_str()
+            ->check(CLI::PositiveNumber);
         cmd.add_option(
-            "--initial-threshold", argInitialThreshold,
-            "Initial correspondence threshold [m] of the adaptive threshold");
+               "--initial-threshold", argInitialThreshold,
+               "Initial correspondence threshold [m] of the adaptive "
+               "threshold")
+            ->capture_default_str();
         cmd.add_option(
-            "--min-motion-th", argMinMotionTh,
-            "Minimum motion [m] to update the adaptive threshold");
+               "--min-motion-th", argMinMotionTh,
+               "Minimum motion [m] to update the adaptive threshold")
+            ->capture_default_str();
+        cmd.add_option(
+               "--max-num-iterations", argMaxNumIterations,
+               "Maximum number of ICP iterations per scan")
+            ->capture_default_str()
+            ->check(CLI::PositiveNumber);
+        cmd.add_option(
+               "--convergence-criterion", argConvergenceCriterion,
+               "ICP stops when the norm of the pose increment is below this")
+            ->capture_default_str();
+        cmd.add_option(
+               "--num-threads", argNumThreads,
+               "Maximum number of threads (0: all the cores this process may "
+               "run on). 1 gives repeatable results")
+            ->capture_default_str();
         auto* optOutPath = cmd.add_option(
             "--output-tum-path", arg_outPath,
             "Save the estimated path as a TXT file using the TUM file format "
@@ -720,8 +733,6 @@ int main(int argc, char** argv)
 
         CLI11_PARSE(cmd, argc, argv);
 
-        argMinRange_set  = (optMinRange->count() > 0);
-        argMaxRange_set  = (optMaxRange->count() > 0);
         argVoxelSize_set = (optVoxelSize->count() > 0);
         arg_outPath_set  = (optOutPath->count() > 0);
         arg_firstN_set   = (optFirstN->count() > 0);
